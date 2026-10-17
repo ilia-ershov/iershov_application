@@ -1,4 +1,22 @@
-.obsidian/
+# Python
 project/venv/
-project/.env
-project/__pycache__/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets
+.env
+!.env.example
+
+# Node
+node_modules/
+dist/
+
+# Editors / OS
+.obsidian/
+.vscode/
+.idea/
+.DS_Store
+
+# Live test artefacts
+live-test-screenshots/
