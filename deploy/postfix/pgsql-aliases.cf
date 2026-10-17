@@ -1,0 +1,11 @@
+# /etc/postfix/pgsql-aliases.cf  (chmod 640, owned by root:postfix; requires the postfix-pgsql package)
+# Resolves <alias>@MAIL_DOMAIN to the owner's main address. Deactivated aliases return nothing,
+# so Postfix rejects mail for them at SMTP time ("User unknown"); reactivating takes effect immediately.
+hosts = 127.0.0.1
+user = postfix_lookup
+password = change-me
+dbname = mail_organizer
+# only look up addresses in this domain
+domain = w3r4kl.ru
+# %u is the (escaped) local part of the recipient address
+query = SELECT u.email FROM aliases a JOIN users u ON u.uuid = a.user_id WHERE a.local_part = '%u' AND a.is_active
