@@ -1,0 +1,23 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "S", "UP"]
+ignore = [
+    "S101",  # assert is fine in tests
+    "S105",  # token-type constants are not passwords
+    "S608",  # the only f-string SQL uses fixed table names
+    "B904",  # raising API errors inside except blocks is intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S106", "S107"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["api", "app", "config", "conftest", "database", "errors", "extensions", "mailer", "models", "security", "validation"]
