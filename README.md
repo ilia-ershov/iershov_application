@@ -65,6 +65,8 @@ docker compose up -d --build
 
 Open http://localhost:8080. While `MAIL_BACKEND=console`, verification codes appear in `docker compose logs -f backend`. For real delivery, set `MAIL_BACKEND=smtp` and the `SMTP_*` variables.
 
+For a complete server (HTTPS, mail server with forwarding, hardening) see [`deploy/README.md`](deploy/README.md): `deploy/server-setup.sh` sets up a fresh Debian server.
+
 The stack listens on `127.0.0.1:8080`. In production, put a TLS-terminating reverse proxy in front of it (Caddy, nginx + certbot, …), set `TRUST_PROXY=2` so rate limits see real client IPs, and enable the HSTS line in `project/front/nginx/security-headers.conf`.
 
 ## Local development

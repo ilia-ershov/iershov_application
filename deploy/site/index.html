@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Илья Ершов</title>
+  <meta name="description" content="Илья Ершов — разработчик. Проекты и контакты.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%232563eb'/><text x='32' y='43' font-size='30' text-anchor='middle' fill='white' font-family='system-ui'>ИЕ</text></svg>">
+  <style>
+    :root { --bg:#f4f6fb; --card:#fff; --text:#172033; --muted:#5b6475; --line:#dde2ec; --accent:#2563eb; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#0f1420; --card:#171e2d; --text:#e6eaf2; --muted:#9aa4b6; --line:#2c3647; --accent:#6b9fff; } }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px 16px;
+           font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+    main { width:100%; max-width:560px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:32px; }
+    h1 { margin:0 0 4px; font-size:2rem; line-height:1.2; }
+    .role { margin:0 0 24px; color:var(--muted); }
+    h2 { margin:28px 0 10px; font-size:.85rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
+    ul { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+    a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+    .project { display:block; padding:14px 16px; border:1px solid var(--line); border-radius:12px; color:inherit; }
+    .project:hover { border-color:var(--accent); text-decoration:none; }
+    .project strong { display:block; } .project span { color:var(--muted); font-size:.95rem; }
+    .label { display:inline-block; min-width:90px; color:var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Илья Ершов</h1>
+    <p class="role">Разработчик · безопасность веб-приложений</p>
+
+    <h2>Проекты</h2>
+    <a class="project" href="https://veil.ershov.me">
+      <strong>Организатор почты — veil.ershov.me</strong>
+      <span>Отдельный адрес электронной почты для каждого сайта: пересылка на основной ящик и отключение в один клик.</span>
+    </a>
+
+    <h2>Контакты</h2>
+    <ul>
+      <li><span class="label">Почта</span><a href="mailto:ilia@ershov.me">ilia@ershov.me</a></li>
+      <li><span class="label">GitHub</span><a href="https://github.com/ilia-ershov">github.com/ilia-ershov</a></li>
+      <li><span class="label">Telegram</span><a href="https://t.me/m0w0kl3n">@m0w0kl3n</a></li>
+    </ul>
+  </main>
+</body>
+</html>
