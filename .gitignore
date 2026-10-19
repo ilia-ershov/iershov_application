@@ -20,3 +20,6 @@ dist/
 
 # Live test artefacts
 live-test-screenshots/
+
+# Server-specific compose settings
+docker-compose.override.yml
