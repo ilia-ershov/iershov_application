@@ -59,6 +59,9 @@ def test_smtp_with_starttls_and_login(app_factory, fake_smtp):
     assert message["To"] == "user@example.com"
     assert message["Subject"] == "Код подтверждения"
     assert "123456" in message.get_content()
+    # Gmail rejects messages without these headers
+    assert message["Message-ID"].startswith("<") and message["Message-ID"].endswith("@w3r4kl.ru>")
+    assert message["Date"]
 
 
 def test_smtp_over_ssl_without_auth(app_factory, fake_smtp):

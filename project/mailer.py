@@ -4,6 +4,7 @@ import logging
 import smtplib
 import ssl
 from email.message import EmailMessage
+from email.utils import formatdate, make_msgid
 
 from flask import current_app
 
@@ -25,6 +26,10 @@ def send_email(to, subject, body):
     message["From"] = config["MAIL_FROM"]
     message["To"] = to
     message["Subject"] = subject
+    # Required by RFC 5322; Gmail rejects mail without a Message-ID, and the relay
+    # does not add them for mail coming from the app's network.
+    message["Date"] = formatdate(localtime=False)
+    message["Message-ID"] = make_msgid(domain=config["MAIL_FROM"].rpartition("@")[2] or None)
     message.set_content(body)
 
     context = ssl.create_default_context()
