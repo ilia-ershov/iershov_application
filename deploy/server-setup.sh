@@ -23,7 +23,8 @@
 #   11. fail2ban            ban SSH / SMTP brute force
 #   12. updates             automatic security updates
 #   13. ssh                 key-only SSH (only if a key is installed)
-#   14. summary             DNS records to create, what to ask the hosting provider
+#   14. backup              daily backup of the database, secrets and config (deploy/backup.sh)
+#   15. summary             DNS records to create, what to ask the hosting provider
 #
 #  Usage:
 #    cp deploy/server.env.example deploy/server.env   # edit values
@@ -34,13 +35,8 @@
 #    - buy the domain and create the DNS records printed by the `summary` step
 #    - ask the hosting provider to set the PTR (reverse DNS) of SERVER_IP to MAIL_HOST
 #
-#  Moving to a new server: copy these before running the script, so DNS stays valid:
-#    /etc/opendkim/keys/          (DKIM keys; otherwise new keys = new DNS records)
-#    /etc/postsrsd.secret         (SRS secret; optional)
-#    .env                         (app secrets)
-#    a dump of the database:      docker compose exec -T db pg_dump -U mail_organizer mail_organizer > dump.sql
-#    and restore the dump after step 2:
-#                                 docker compose exec -T db psql -U mail_organizer mail_organizer < dump.sql
+#  Moving to a new server: restore the latest backup made by deploy/backup.sh
+#  (DKIM keys, SRS secret, .env, database), see "Backups" in deploy/README.md.
 # =====================================================================================
 set -euo pipefail
 
@@ -572,7 +568,41 @@ EOF
 
 
 # -------------------------------------------------------------------------------------
-# 14. What to do outside the server
+# 14. Daily backup (database + secrets + config), kept for 14 days
+# -------------------------------------------------------------------------------------
+step_backup() {
+  log "14. Daily backup"
+  cat > /etc/systemd/system/mail-organizer-backup.service <<UNIT
+[Unit]
+Description=Mail Organizer backup (database, secrets, config)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=$DEPLOY_DIR/backup.sh
+UNIT
+  cat > /etc/systemd/system/mail-organizer-backup.timer <<'UNIT'
+[Unit]
+Description=Daily Mail Organizer backup
+
+[Timer]
+OnCalendar=*-*-* 04:30
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+  systemctl daemon-reload
+  systemctl enable --now mail-organizer-backup.timer
+  systemctl start mail-organizer-backup.service   # first backup right away
+  ls -l /var/backups/mail-organizer/latest/
+}
+
+
+# -------------------------------------------------------------------------------------
+# 15. What to do outside the server
 # -------------------------------------------------------------------------------------
 dkim_value() {   # one-line TXT value from opendkim-genkey's mail.txt
   tr -d '\n\t' < "/etc/opendkim/keys/$1/mail.txt" \
@@ -580,7 +610,7 @@ dkim_value() {   # one-line TXT value from opendkim-genkey's mail.txt
 }
 
 step_summary() {
-  log "14. DNS records to create at the registrar (Host = part before .$DOMAIN)"
+  log "15. DNS records to create at the registrar (Host = part before .$DOMAIN)"
   cat <<EOF
   A     @                      $SERVER_IP
   A     www                    $SERVER_IP
@@ -611,7 +641,7 @@ EOF
 
 
 # -------------------------------------------------------------------------------------
-ALL_STEPS=(packages app lookup_role site caddy postfix srs dkim resolver postfix_tls fail2ban updates ssh summary)
+ALL_STEPS=(packages app lookup_role site caddy postfix srs dkim resolver postfix_tls fail2ban updates ssh backup summary)
 STEPS=("$@")
 [ ${#STEPS[@]} -gt 0 ] || STEPS=("${ALL_STEPS[@]}")
 for step in "${STEPS[@]}"; do

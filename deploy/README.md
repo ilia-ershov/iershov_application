@@ -37,6 +37,7 @@ At the end the script prints the DNS records to create.
 | `fail2ban` | Bans SSH/SMTP brute force (your IPs from `F2B_IGNORE` are never banned) |
 | `updates` | Daily automatic security updates, no automatic reboot |
 | `ssh` | Key-only SSH (skipped if no key is installed) |
+| `backup` | Daily backup at 04:30 of the database, secrets and config, kept for 14 days (`deploy/backup.sh`) |
 | `summary` | Prints the DNS records (incl. DKIM) and the PTR request for the provider |
 
 ## Outside the server
@@ -48,21 +49,36 @@ These can't be scripted:
 
 Certificates are issued as soon as the A records resolve. If `postfix_tls` ran too early, re-run `sudo ./deploy/server-setup.sh postfix_tls`.
 
-## Moving to a new server
+## Backups
 
-Copy these from the old server first so that DNS records and accounts stay valid:
+`deploy/backup.sh` (run daily by the `backup` step's systemd timer, or by hand with `sudo ./deploy/backup.sh`) writes `/var/backups/mail-organizer/<date>_<time>/`:
+
+| File | Contents |
+| --- | --- |
+| `db.dump` | The app database (`pg_dump` custom format, checked with `pg_restore --list` right after dumping) |
+| `files.tar.gz` | `.env`, `docker-compose.override.yml`, `deploy/server.env`, DKIM keys and tables, `/etc/postsrsd.secret`, Postfix, OpenDKIM and Caddy config |
+| `SHA256SUMS` | Checksums of both |
+
+`latest` points to the newest run; runs older than 14 days are deleted. A backup that lives only on the server is lost together with it, so copy it off regularly. It contains secrets, so keep the copy encrypted:
 
 ```bash
-/etc/opendkim/keys/            # DKIM keys (new keys would need new DNS records)
-/etc/postsrsd.secret           # SRS secret
-.env                           # app secrets
-docker compose exec -T db pg_dump -U mail_organizer mail_organizer > dump.sql
+scp -r root@SERVER:/var/backups/mail-organizer/latest/ ./mail-organizer-backup
 ```
 
-Put the files in place, run the script, and restore the database after the `app` step:
+Check the timer with `systemctl list-timers mail-organizer-backup.timer` and the last run with `journalctl -u mail-organizer-backup`.
+
+## Moving to a new server
+
+Restore the latest backup so that DNS records (DKIM) and accounts stay valid:
 
 ```bash
-docker compose exec -T db psql -U mail_organizer mail_organizer < dump.sql
+# on the new server, after cloning the repo into the same path
+sha256sum -c SHA256SUMS
+# secrets only: the script writes the config itself (the archive's copies are for reference)
+tar -xzf files.tar.gz -C / --wildcards '*/.env' 'etc/opendkim/keys' 'etc/postsrsd.secret'
+sudo ./deploy/server-setup.sh                       # keeps the existing .env and DKIM keys
+docker compose exec -T db pg_restore -U mail_organizer -d mail_organizer --clean --if-exists < db.dump
+sudo ./deploy/server-setup.sh lookup_role           # re-grant the Postfix lookup role
 ```
 
 ## Checking the result
