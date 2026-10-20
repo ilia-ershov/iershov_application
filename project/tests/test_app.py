@@ -63,6 +63,19 @@ def test_failed_logins_are_rate_limited(app_factory):
     assert response.get_json()["code"] == "rate_limited"
 
 
+def test_failed_logins_are_limited_per_account_across_ips(app_factory):
+    client = app_factory(RATELIMIT_ENABLED=True).test_client()
+    body = {"email": "a@example.com", "password": "Wrong-pass1"}
+    statuses = [
+        client.post("/api/auth/login", json=body, environ_base={"REMOTE_ADDR": f"198.51.100.{i}"}).status_code
+        for i in range(21)
+    ]
+    assert statuses == [401] * 20 + [429]
+    # other accounts are unaffected
+    other = {"email": "b@example.com", "password": "Wrong-pass1"}
+    assert client.post("/api/auth/login", json=other, environ_base={"REMOTE_ADDR": "198.51.100.99"}).status_code == 401
+
+
 def test_code_requests_are_rate_limited(app_factory):
     client = app_factory(RATELIMIT_ENABLED=True).test_client()
     statuses = [

@@ -6,7 +6,8 @@ import math
 from uuid import UUID
 
 import jwt
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, jsonify, request
+from flask_limiter.util import get_remote_address
 from sqlalchemy.exc import IntegrityError
 
 from errors import ApiError, bad_request, conflict, unauthorized
@@ -49,6 +50,24 @@ SUBJECTS = {
 def failed_auth(response):
     """Rate limits on credential checks only count failures, so normal use is never throttled."""
     return response.status_code in (400, 401, 403)
+
+
+# Per-IP limits alone let a botnet try passwords or 2FA codes against one account without end,
+# so failures are also counted per account, whichever addresses they come from.
+def login_account_key():
+    data = request.get_json(silent=True)
+    email = data.get("email") if isinstance(data, dict) else None
+    email = email.strip().lower()[:254] if isinstance(email, str) else ""
+    return f"login-account:{email}" if email else get_remote_address()
+
+
+def mfa_account_key():
+    data = request.get_json(silent=True)
+    try:
+        claims = decode_token(data.get("mfa_token") if isinstance(data, dict) else None, MFA)
+    except jwt.InvalidTokenError:
+        return get_remote_address()
+    return f"mfa-account:{claims['sub']}"
 
 
 def _code_email(purpose, code, registered):
@@ -194,6 +213,7 @@ def register():
 
 @bp.post("/login")
 @limiter.limit("10 per minute;50 per hour", deduct_when=failed_auth)
+@limiter.limit("20 per hour", key_func=login_account_key, deduct_when=failed_auth)
 def login():
     data = get_json()
     email = data.get("email")
@@ -210,6 +230,7 @@ def login():
 
 @bp.post("/login/2fa")
 @limiter.limit("10 per minute;50 per hour", deduct_when=failed_auth)
+@limiter.limit("10 per hour", key_func=mfa_account_key, deduct_when=failed_auth)
 def login_second_factor():
     data = get_json()
     try:

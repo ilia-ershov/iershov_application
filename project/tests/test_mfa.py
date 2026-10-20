@@ -120,3 +120,26 @@ def test_pending_2fa_login_dies_with_a_password_change(client, app, mfa_user):
     response = client.post("/api/auth/login/2fa", json={"mfa_token": mfa_token, "code": code_at(secret, 1)})
     assert response.status_code == 401
     assert response.get_json()["code"] == "mfa_expired"
+
+
+def test_wrong_2fa_codes_are_limited_per_account_across_ips(app_factory):
+    app = app_factory(RATELIMIT_ENABLED=True)
+    client = app.test_client()
+    token = register(client, app, email="mfa@example.com")
+    setup = client.post("/api/account/2fa/setup", headers=auth(token)).get_json()
+    client.post(
+        "/api/account/2fa/enable",
+        headers=auth(token),
+        json={"setup_token": setup["setup_token"], "code": code_at(setup["secret"])},
+    )
+    mfa_token = start_login(client)
+    wrong = "000000" if code_at(setup["secret"]) != "000000" else "111111"
+    statuses = [
+        client.post(
+            "/api/auth/login/2fa",
+            json={"mfa_token": mfa_token, "code": wrong},
+            environ_base={"REMOTE_ADDR": f"198.51.100.{i}"},
+        ).status_code
+        for i in range(11)
+    ]
+    assert statuses == [401] * 10 + [429]
