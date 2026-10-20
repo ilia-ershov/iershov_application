@@ -72,7 +72,7 @@ export default function EmailVerificationField({ label, purpose, email, onEmailC
     }
     setBusy(true)
     try {
-      const result = await authApi.verifyCode(normalized, code.trim())
+      const result = await authApi.verifyCode(normalized, code.trim(), purpose)
       onVerified(result.verification_token)
     } catch (err) {
       setError(errorMessage(err))

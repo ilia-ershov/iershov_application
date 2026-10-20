@@ -84,4 +84,4 @@ def test_failed_delivery_is_reported_and_code_discarded(app_factory, monkeypatch
     from extensions import db
     from models import EmailVerification
 
-    assert db.session.get(EmailVerification, "a@example.com") is None
+    assert db.session.get(EmailVerification, ("a@example.com", "register")) is None

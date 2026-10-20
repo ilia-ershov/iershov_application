@@ -86,12 +86,16 @@ class Alias(db.Model):
 
 
 class EmailVerification(db.Model):
-    """A pending one-time code sent to an address. Only an HMAC of the code is stored."""
+    """A pending one-time code sent to an address. Only an HMAC of the code is stored.
+
+    One code per address *and purpose*: a request for another purpose (which anyone can make)
+    must not replace the code the owner is about to enter, e.g. for a password reset.
+    """
 
     __tablename__ = "email_verifications"
 
     email = db.Column(String(255), primary_key=True)
-    purpose = db.Column(String(32), nullable=False)
+    purpose = db.Column(String(32), primary_key=True)
     code_hash = db.Column(String(64), nullable=False)
     attempts = db.Column(Integer, nullable=False, default=0)
     created_at = db.Column(DateTime(timezone=True), nullable=False, default=utcnow)

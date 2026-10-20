@@ -89,7 +89,9 @@ def last_code(app, email):
 def verify_email(client, app, email, purpose="register"):
     response = client.post("/api/auth/request-code", json={"email": email, "purpose": purpose})
     assert response.status_code == 200, response.get_json()
-    response = client.post("/api/auth/verify-code", json={"email": email, "code": last_code(app, email)})
+    response = client.post(
+        "/api/auth/verify-code", json={"email": email, "code": last_code(app, email), "purpose": purpose}
+    )
     assert response.status_code == 200, response.get_json()
     return response.get_json()["verification_token"]
 

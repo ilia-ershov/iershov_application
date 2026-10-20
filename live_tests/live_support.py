@@ -155,7 +155,7 @@ class Api:
             time.sleep(int(response.headers.get("Retry-After", 60)))  # per-minute limit from an earlier run
         assert response.status_code == 200, response.text
         code = wait_for(mailbox, is_code_mail, before=before).code
-        response = self.post("/auth/verify-code", json={"email": address, "code": code})
+        response = self.post("/auth/verify-code", json={"email": address, "code": code, "purpose": purpose})
         assert response.status_code == 200, response.text
         return response.json()["verification_token"]
 

@@ -4,8 +4,10 @@ from datetime import timedelta
 import bcrypt
 import jwt
 import pytest
+from sqlalchemy import inspect, text
 
 from conftest import PASSWORD, auth, last_code, outbox, register, verify_email
+from database import init_db
 from extensions import db
 from models import EmailVerification, User, utcnow
 from security import create_token, issue_verification_token, verify_password
@@ -99,7 +101,7 @@ def test_forged_expired_and_unsigned_tokens_are_rejected(client, app):
 def test_code_is_single_use_and_stored_hashed(client, app):
     client.post("/api/auth/request-code", json={"email": "a@example.com"})
     code = last_code(app, "a@example.com")
-    record = db.session.get(EmailVerification, "a@example.com")
+    record = db.session.get(EmailVerification, ("a@example.com", "register"))
     assert code not in record.code_hash
 
     assert client.post("/api/auth/verify-code", json={"email": "a@example.com", "code": code}).status_code == 200
@@ -125,10 +127,34 @@ def test_code_guessing_is_limited(client, app):
 def test_expired_code_is_rejected(client, app):
     client.post("/api/auth/request-code", json={"email": "a@example.com"})
     code = last_code(app, "a@example.com")
-    db.session.get(EmailVerification, "a@example.com").expires_at = utcnow() - timedelta(seconds=1)
+    db.session.get(EmailVerification, ("a@example.com", "register")).expires_at = utcnow() - timedelta(seconds=1)
     db.session.commit()
     response = client.post("/api/auth/verify-code", json={"email": "a@example.com", "code": code})
     assert response.status_code == 400
+
+
+def test_a_request_for_another_purpose_keeps_the_pending_code(client, app):
+    register(client, app, email="a@example.com")
+    client.post("/api/auth/request-code", json={"email": "a@example.com", "purpose": "reset_password"})
+    code = last_code(app, "a@example.com")
+    # anyone can ask for a registration code for the same address; the owner's reset code survives
+    client.post("/api/auth/request-code", json={"email": "a@example.com", "purpose": "register"})
+    response = client.post(
+        "/api/auth/verify-code", json={"email": "a@example.com", "code": code, "purpose": "reset_password"}
+    )
+    assert response.status_code == 200
+    assert response.get_json()["purpose"] == "reset_password"
+
+
+def test_code_only_verifies_for_its_purpose(client, app):
+    client.post("/api/auth/request-code", json={"email": "a@example.com", "purpose": "change_email"})
+    code = last_code(app, "a@example.com")
+    response = client.post("/api/auth/verify-code", json={"email": "a@example.com", "code": code})
+    assert response.status_code == 400
+    response = client.post(
+        "/api/auth/verify-code", json={"email": "a@example.com", "code": code, "purpose": "change_email"}
+    )
+    assert response.status_code == 200
 
 
 def test_resend_cooldown(app_factory):
@@ -271,3 +297,19 @@ def test_oversized_body_is_rejected(client):
     response = client.post("/api/auth/login", json={"email": "a@example.com", "password": "x" * 20000})
     assert response.status_code == 413
     assert response.get_json()["code"] == "payload_too_large"
+
+
+def test_old_code_table_keyed_by_address_only_is_upgraded(app):
+    EmailVerification.__table__.drop(db.engine)
+    with db.engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE email_verifications (email VARCHAR(255) PRIMARY KEY, purpose VARCHAR(32) NOT NULL, "
+                "code_hash VARCHAR(64) NOT NULL, attempts INTEGER NOT NULL, created_at TIMESTAMP NOT NULL, "
+                "expires_at TIMESTAMP NOT NULL)"
+            )
+        )
+    init_db()
+    pk = inspect(db.engine).get_pk_constraint("email_verifications")["constrained_columns"]
+    assert sorted(pk) == ["email", "purpose"]
+    init_db()  # idempotent

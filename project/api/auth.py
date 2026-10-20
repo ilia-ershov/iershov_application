@@ -83,6 +83,13 @@ def _code_email(purpose, code, registered):
     )
 
 
+def _purpose(data):
+    purpose = data.get("purpose", "register")
+    if purpose not in PURPOSES:
+        raise bad_request("invalid_field", "Unknown purpose", field="purpose")
+    return purpose
+
+
 def _resend_too_soon(seconds):
     return ApiError(429, "resend_too_soon", "Please wait before requesting another code", retry_after=seconds)
 
@@ -92,24 +99,21 @@ def _resend_too_soon(seconds):
 def request_code():
     data = get_json()
     email = require_external_email(normalize_email(data.get("email")))
-    purpose = data.get("purpose", "register")
-    if purpose not in PURPOSES:
-        raise bad_request("invalid_field", "Unknown purpose", field="purpose")
+    purpose = _purpose(data)
 
     config = current_app.config
     now = utcnow()
     EmailVerification.query.filter(EmailVerification.expires_at < now).delete()
-    record = db.session.get(EmailVerification, email, with_for_update=True)
+    record = db.session.get(EmailVerification, (email, purpose), with_for_update=True)
     if record is not None:
         wait = (as_utc(record.created_at) + config["CODE_RESEND_COOLDOWN"] - now).total_seconds()
         if wait > 0:
             raise _resend_too_soon(math.ceil(wait))
     else:
-        record = EmailVerification(email=email)
+        record = EmailVerification(email=email, purpose=purpose)
         db.session.add(record)
 
     code = generate_code()
-    record.purpose = purpose
     record.code_hash = hash_code(email, code)
     record.attempts = 0
     record.created_at = now
@@ -136,15 +140,15 @@ def request_code():
 def verify_code():
     data = get_json()
     email = normalize_email(data.get("email"))
+    purpose = _purpose(data)
     code = data.get("code")
     code = code.strip() if isinstance(code, str) else ""
 
-    record = db.session.get(EmailVerification, email, with_for_update=True)
+    record = db.session.get(EmailVerification, (email, purpose), with_for_update=True)
     if record is None or as_utc(record.expires_at) <= utcnow():
         raise bad_request("invalid_code", "Invalid or expired code")
 
     if hmac.compare_digest(record.code_hash, hash_code(email, code)):
-        purpose = record.purpose
         db.session.delete(record)  # single use
         db.session.commit()
         claims = {}

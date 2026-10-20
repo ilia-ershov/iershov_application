@@ -7,7 +7,7 @@ from sqlalchemy import insert, inspect, select, text
 
 from errors import ApiError
 from extensions import db
-from models import Alias, utcnow
+from models import Alias, EmailVerification, utcnow
 from validation import MAX_SERVICE_LENGTH, normalize_service_url
 
 # Columns added to the pre-existing `users` table; create_all() never alters existing tables.
@@ -23,6 +23,7 @@ LOCAL_PART_RE = re.compile(r"^[a-z0-9]{1,64}$")
 
 def init_db():
     """Create missing tables and columns. Safe to run on every start."""
+    _upgrade_email_verifications()
     db.create_all()
     existing = {column["name"] for column in inspect(db.engine).get_columns("users")}
     missing = [ddl for name, ddl in USER_COLUMNS.items() if name not in existing]
@@ -30,6 +31,19 @@ def init_db():
         with db.engine.begin() as connection:
             for ddl in missing:
                 connection.execute(text(f"ALTER TABLE users ADD COLUMN {ddl}"))
+
+
+def _upgrade_email_verifications():
+    """Pending codes used to be keyed by address alone; now by (address, purpose).
+
+    The table only holds codes that expire within minutes, so it is simply recreated:
+    anyone with a code in flight requests a new one.
+    """
+    inspector = inspect(db.engine)
+    if "email_verifications" not in inspector.get_table_names():
+        return
+    if inspector.get_pk_constraint("email_verifications")["constrained_columns"] == ["email"]:
+        EmailVerification.__table__.drop(db.engine)
 
 
 def _parse_legacy(data):

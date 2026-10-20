@@ -33,7 +33,7 @@ const body = (request) => request.then((response) => response.data)
 
 export const authApi = {
   requestCode: (email, purpose) => body(api.post('/auth/request-code', { email, purpose })),
-  verifyCode: (email, code) => body(api.post('/auth/verify-code', { email, code })),
+  verifyCode: (email, code, purpose) => body(api.post('/auth/verify-code', { email, code, purpose })),
   register: (payload) => body(api.post('/auth/register', payload)),
   login: (email, password) => body(api.post('/auth/login', { email, password })),
   loginSecondFactor: (mfaToken, code) => body(api.post('/auth/login/2fa', { mfa_token: mfaToken, code })),
