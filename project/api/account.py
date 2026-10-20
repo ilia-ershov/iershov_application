@@ -27,6 +27,7 @@ from security import (
 )
 from validation import get_json, normalize_email, require_external_email, validate_new_password
 
+from .aliases import retire
 from .auth import failed_auth
 
 bp = Blueprint("account", __name__, url_prefix="/account")
@@ -117,7 +118,8 @@ def delete_account():
     data = get_json()
     _require_password(data)
     email = g.user.email
-    db.session.delete(g.user)  # aliases are removed by ON DELETE CASCADE
+    retire(list(g.user.aliases))
+    db.session.delete(g.user)
     db.session.commit()
     _notify(
         email,

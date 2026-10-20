@@ -58,4 +58,5 @@ export const aliasApi = {
   update: (id, payload) => body(api.patch(`/aliases/${id}`, payload)),
   deactivate: (id) => body(api.post(`/aliases/${id}/deactivate`)),
   activate: (id) => body(api.post(`/aliases/${id}/activate`)),
+  remove: (id) => body(api.delete(`/aliases/${id}`)),
 }

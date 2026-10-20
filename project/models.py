@@ -85,6 +85,16 @@ class Alias(db.Model):
         }
 
 
+class RetiredAlias(db.Model):
+    """The local part of a deleted alias. It is never handed out again, so mail that services
+    still send to it (newsletters, password resets) cannot reach another user. Not linked to anyone."""
+
+    __tablename__ = "retired_aliases"
+
+    local_part = db.Column(String(64), primary_key=True)
+    retired_at = db.Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 class EmailVerification(db.Model):
     """A pending one-time code sent to an address. Only an HMAC of the code is stored.
 

@@ -39,6 +39,18 @@ export default function Deactivated() {
     }
   }
 
+  const remove = async (alias) => {
+    if (!window.confirm(`Удалить ${alias.address} навсегда? Восстановить его будет нельзя. Другому пользователю он тоже не достанется.`)) return
+    setError('')
+    try {
+      await aliasApi.remove(alias.id)
+      setAliases((list) => list.filter((item) => item.id !== alias.id))
+      setNotice(`Адрес ${alias.address} удалён.`)
+    } catch (err) {
+      setError(errorMessage(err, 'Не удалось удалить адрес.'))
+    }
+  }
+
   const visible = (aliases || []).filter((alias) => matchesQuery(alias, query))
 
   return (
@@ -48,7 +60,7 @@ export default function Deactivated() {
           <h1>Отключённые адреса</h1>
           <p className="muted">
             Письма на эти адреса не принимаются. Адреса закреплены за вами и никогда не будут выданы другому
-            пользователю.
+            пользователю. Ненужный адрес можно удалить, чтобы он не занимал место в лимите.
           </p>
         </div>
       </div>
@@ -70,6 +82,9 @@ export default function Deactivated() {
               <AliasItem key={alias.id} alias={alias}>
                 <button type="button" className="button button-small" onClick={() => activate(alias)}>
                   Включить снова
+                </button>
+                <button type="button" className="button button-small button-ghost button-danger" onClick={() => remove(alias)}>
+                  Удалить
                 </button>
               </AliasItem>
             ))}

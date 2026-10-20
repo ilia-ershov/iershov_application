@@ -5,7 +5,7 @@ import pytest
 
 from conftest import auth, create_alias, register
 from extensions import db
-from models import Alias
+from models import Alias, RetiredAlias
 from security import ALIAS, create_token
 
 
@@ -161,3 +161,49 @@ def test_unknown_alias_id(client, app):
     response = client.post("/api/aliases/00000000-0000-0000-0000-000000000000/activate", headers=auth(token))
     assert response.status_code == 404
     assert client.post("/api/aliases/not-a-uuid/activate", headers=auth(token)).status_code == 404
+
+
+def test_delete_deactivated_alias_frees_the_limit(app_factory):
+    app = app_factory(MAX_ALIASES_PER_USER=1)
+    client = app.test_client()
+    token = register(client, app)
+    alias = create_alias(client, token)
+
+    response = client.delete(f"/api/aliases/{alias['id']}", headers=auth(token))
+    assert response.status_code == 409
+    assert response.get_json()["code"] == "alias_active"
+
+    client.post(f"/api/aliases/{alias['id']}/deactivate", headers=auth(token))
+    assert client.delete(f"/api/aliases/{alias['id']}", headers=auth(token)).status_code == 200
+    assert client.get("/api/aliases", headers=auth(token)).get_json()["aliases"] == []
+    create_alias(client, token)  # the limit counts the remaining aliases only
+
+
+def test_deleted_address_is_never_handed_out_again(client, app, monkeypatch):
+    token = register(client, app)
+    alias = create_alias(client, token)
+    client.post(f"/api/aliases/{alias['id']}/deactivate", headers=auth(token))
+    monkeypatch.setattr("api.aliases.generate_alias_local_part", lambda: alias["alias"])
+    stale = create_token(ALIAS, alias_owner(client, token), timedelta(minutes=5), alias=alias["alias"])
+    client.delete(f"/api/aliases/{alias['id']}", headers=auth(token))
+
+    assert db.session.get(RetiredAlias, alias["alias"]) is not None
+    # the generator skips retired addresses (here it can only produce that one)
+    assert client.post("/api/aliases/generate", headers=auth(token)).status_code == 503
+    # and a token issued for it before the deletion no longer creates it
+    response = client.post("/api/aliases", headers=auth(token), json={"alias_token": stale, "service": "x"})
+    assert response.status_code == 409
+    assert response.get_json()["code"] == "alias_taken"
+
+
+def test_users_cannot_delete_each_others_aliases(client, app):
+    alice = register(client, app, email="alice@example.com")
+    bob = register(client, app, email="bob@example.com")
+    alias = create_alias(client, alice)
+    client.post(f"/api/aliases/{alias['id']}/deactivate", headers=auth(alice))
+    assert client.delete(f"/api/aliases/{alias['id']}", headers=auth(bob)).status_code == 404
+    assert db.session.get(Alias, UUID(alias["id"])) is not None
+
+
+def alias_owner(client, token):
+    return client.get("/api/account", headers=auth(token)).get_json()["user"]["id"]

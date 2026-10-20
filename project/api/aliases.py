@@ -1,4 +1,4 @@
-"""Forwarding addresses (aliases): generate, create, list, edit, deactivate and reactivate."""
+"""Forwarding addresses (aliases): generate, create, list, edit, deactivate, reactivate and delete."""
 
 import re
 
@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from errors import ApiError, bad_request, conflict, not_found
 from extensions import db, limiter
-from models import Alias, utcnow
+from models import Alias, RetiredAlias, utcnow
 from security import ALIAS, create_token, decode_token, generate_alias_local_part, login_required
 from validation import MAX_SERVICE_LENGTH, get_json, get_str, normalize_service_url
 
@@ -30,13 +30,27 @@ def _owned_alias(alias_id):
     return alias
 
 
+def _address_taken(local_part):
+    return (
+        db.session.get(RetiredAlias, local_part) is not None
+        or Alias.query.filter_by(local_part=local_part).first() is not None
+    )
+
+
+def retire(aliases):
+    """Delete aliases for good; their addresses stay reserved (see RetiredAlias)."""
+    for alias in aliases:
+        db.session.add(RetiredAlias(local_part=alias.local_part))
+        db.session.delete(alias)
+
+
 @bp.post("/generate")
 @limiter.limit("30 per minute")
 @login_required
 def generate():
     for _ in range(5):
         local_part = generate_alias_local_part()
-        if Alias.query.filter_by(local_part=local_part).first() is None:
+        if not _address_taken(local_part):
             break
     else:  # 36^10 possibilities: practically unreachable
         raise ApiError(503, "alias_unavailable", "Could not generate an address, please try again")
@@ -84,6 +98,9 @@ def create_alias():
     service = get_str(data, "service", max_length=MAX_SERVICE_LENGTH)
     service_url = normalize_service_url(data.get("service_url"))
 
+    if db.session.get(RetiredAlias, local_part) is not None:  # deleted after the token was issued
+        raise conflict("alias_taken", "This address has already been used, please generate a new one")
+
     limit = current_app.config["MAX_ALIASES_PER_USER"]
     if Alias.query.filter_by(user_id=g.user.uuid).count() >= limit:
         raise conflict("alias_limit", f"You can have at most {limit} addresses")
@@ -120,6 +137,18 @@ def deactivate_alias(alias_id):
         alias.deactivated_at = utcnow()
         db.session.commit()
     return jsonify(alias=_payload(alias))
+
+
+@bp.delete("/<uuid:alias_id>")
+@login_required
+def delete_alias(alias_id):
+    alias = _owned_alias(alias_id)
+    # Only deactivated aliases: an active one may still be in use, and a mistake here is final.
+    if alias.is_active:
+        raise conflict("alias_active", "Deactivate the address before deleting it")
+    retire([alias])
+    db.session.commit()
+    return jsonify(message="Alias deleted")
 
 
 @bp.post("/<uuid:alias_id>/activate")

@@ -1,6 +1,6 @@
 from conftest import PASSWORD, auth, create_alias, outbox, register, verify_email
 from extensions import db
-from models import Alias, User
+from models import Alias, RetiredAlias, User
 
 
 def change_email(client, token, email, verification_token, password=PASSWORD):
@@ -86,8 +86,7 @@ def test_delete_account_requires_password(client, app):
 
 def test_delete_account_removes_everything(client, app):
     token = register(client, app, email="gone@example.com")
-    create_alias(client, token)
-    create_alias(client, token)
+    gone = {create_alias(client, token)["alias"], create_alias(client, token)["alias"]}
     keeper = register(client, app, email="keeper@example.com")
     create_alias(client, keeper)
 
@@ -96,4 +95,6 @@ def test_delete_account_removes_everything(client, app):
     assert client.get("/api/account", headers=auth(token)).status_code == 401
     assert db.session.query(User).count() == 1
     assert db.session.query(Alias).count() == 1  # only the other user's alias is left
+    # the addresses stay reserved, without any link to the deleted account
+    assert {r.local_part for r in db.session.query(RetiredAlias)} == gone
     assert any(m["to"] == "gone@example.com" and "удалён" in m["subject"] for m in outbox(app))
