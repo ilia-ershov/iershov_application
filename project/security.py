@@ -89,18 +89,20 @@ def issue_access_token(user):
     return create_token(ACCESS, str(user.uuid), current_app.config["ACCESS_TOKEN_TTL"], ver=user.token_version)
 
 
-def issue_verification_token(email, purpose):
-    return create_token(EMAIL_VERIFICATION, email, current_app.config["VERIFICATION_TOKEN_TTL"], purpose=purpose)
+def issue_verification_token(email, purpose, **claims):
+    ttl = current_app.config["VERIFICATION_TOKEN_TTL"]
+    return create_token(EMAIL_VERIFICATION, email, ttl, purpose=purpose, **claims)
 
 
 def check_verification_token(token, email, purpose):
-    """The token proves its holder entered the code sent to `email` for this purpose."""
+    """The token proves its holder entered the code sent to `email` for this purpose. Returns its claims."""
     try:
         claims = decode_token(token, EMAIL_VERIFICATION)
     except jwt.InvalidTokenError:
         raise bad_request("invalid_verification", "Email address is not verified or verification expired")
     if claims["sub"] != email or claims.get("purpose") != purpose:
         raise bad_request("invalid_verification", "Email address is not verified or verification expired")
+    return claims
 
 
 def login_required(view):

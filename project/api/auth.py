@@ -147,7 +147,14 @@ def verify_code():
         purpose = record.purpose
         db.session.delete(record)  # single use
         db.session.commit()
-        return jsonify(verification_token=issue_verification_token(email, purpose), purpose=purpose)
+        claims = {}
+        if purpose == "reset_password":
+            user = User.query.filter_by(email=email).first()
+            if user is not None:
+                # The reset bumps token_version, so the token sets a new password only once.
+                claims["ver"] = user.token_version
+        token = issue_verification_token(email, purpose, **claims)
+        return jsonify(verification_token=token, purpose=purpose)
 
     # Each code allows a few guesses, so brute-forcing a 6-digit code is not feasible.
     record.attempts += 1
@@ -222,10 +229,10 @@ def reset_password():
     data = get_json()
     email = normalize_email(data.get("email"))
     password = validate_new_password(data.get("password"))
-    check_verification_token(data.get("verification_token"), email, "reset_password")
+    claims = check_verification_token(data.get("verification_token"), email, "reset_password")
 
     user = User.query.filter_by(email=email).first()
-    if user is None:
+    if user is None or claims.get("ver") != user.token_version:
         raise bad_request("invalid_verification", "Email address is not verified or verification expired")
     user.password_hash = hash_password(password)
     user.token_version += 1  # signs out every existing session

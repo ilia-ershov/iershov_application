@@ -235,6 +235,21 @@ def test_password_reset_signs_out_existing_sessions(client, app):
     )
 
 
+def test_password_reset_token_works_once(client, app):
+    register(client, app, email="a@example.com")
+    token = verify_email(client, app, "a@example.com", purpose="reset_password")
+    payload = {"email": "a@example.com", "password": "N3w-password", "verification_token": token}
+    assert client.post("/api/auth/reset-password", json=payload).status_code == 200
+
+    payload["password"] = "An0ther-password"
+    response = client.post("/api/auth/reset-password", json=payload)
+    assert response.status_code == 400
+    assert response.get_json()["code"] == "invalid_verification"
+    assert (
+        client.post("/api/auth/login", json={"email": "a@example.com", "password": "N3w-password"}).status_code == 200
+    )
+
+
 def test_hashes_from_the_original_passlib_version_still_verify(app):
     legacy_hash = bcrypt.hashpw(PASSWORD.encode(), bcrypt.gensalt(4)).decode()
     assert verify_password(PASSWORD, legacy_hash)
