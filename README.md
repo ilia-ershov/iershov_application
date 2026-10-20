@@ -1,19 +1,51 @@
-# Mail Organizer — private forwarding addresses
+<div align="center">
 
-**Mail Organizer** (*Организатор почты*) gives you a separate random email address for every website, such as `x7k2m9q4ab@w3r4kl.ru`. Mail sent to it is forwarded to your real inbox. If a site leaks its database or starts sending spam, you switch that one address off in a click.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg">
+  <img src="docs/logo.svg" width="72" height="72" alt="">
+</picture>
+
+# Mail Organizer
+
+**A separate random email address for every website, forwarded to your real inbox and switched off in one click.**
+
+*Организатор почты* · the interface is in Russian
+
+[![CI](https://github.com/ilia-ershov/iershov_application/actions/workflows/ci.yml/badge.svg)](https://github.com/ilia-ershov/iershov_application/actions/workflows/ci.yml)
+![Python 3.13](https://img.shields.io/badge/Python-3.13-3776ab?logo=python&logoColor=white)
+![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)
+![React 19](https://img.shields.io/badge/React-19-149eca?logo=react&logoColor=white)
+![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-4169e1?logo=postgresql&logoColor=white)
+![Postfix](https://img.shields.io/badge/mail-Postfix-555555)
+
+[**Live: veil.ershov.me**](https://veil.ershov.me) · [Deploy your own](deploy/README.md) · [API](#api)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark.png">
+  <img src="docs/screenshots/home.png" alt="Home page: a headline and an example list of forwarding addresses" width="900">
+</picture>
+
+</div>
+
+## Why
+
+You sign up somewhere with `x7k2m9q4ab@w3r4kl.ru` instead of your real address. Mail sent to it lands in your inbox as usual. When that site leaks its database or starts sending spam, you switch that one address off and nothing else changes.
 
 - Your real address is never handed to third parties.
 - A leaked database can't be cross-referenced to find out where else you are registered.
 - Phishing aimed at an address that belongs to one shop is obviously out of place.
 - Changing your real inbox means updating one setting, not every website.
 
-The interface is in Russian.
-
-![Dashboard](docs/screenshots/dashboard.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/dashboard-dark.png">
+  <img src="docs/screenshots/dashboard.png" alt="List of addresses with service names, links and actions" width="100%">
+</picture>
 
 | Create an address | Two-factor setup | Mobile |
 | --- | --- | --- |
-| ![Create](docs/screenshots/create.png) | ![2FA](docs/screenshots/two-factor.png) | ![Mobile](docs/screenshots/mobile.png) |
+| ![Create](docs/screenshots/create.png) | ![2FA](docs/screenshots/two-factor.png) | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-dark.png"><img src="docs/screenshots/mobile.png" alt="Mobile"></picture> |
 
 ## Features
 
@@ -25,6 +57,24 @@ The interface is in Russian.
 - **Security notifications** when the main address, password or 2FA changes, or the account is deleted.
 - **Help centre** with practical guidance on phishing, passwords and what to do after a compromise.
 - **Mail forwarding through Postfix**, which reads active aliases straight from the database with a read-only role.
+
+## How it works
+
+```mermaid
+flowchart LR
+    B["Browser<br/>React SPA"] -->|HTTPS| N["nginx<br/>static files, /api proxy"]
+    N -->|/api| A["Flask API<br/>gunicorn"]
+    A --> P[("PostgreSQL")]
+    A --> R[("Redis<br/>rate limits")]
+    A -->|SMTP| M["Mail server<br/>codes, notifications"]
+    S["Any sender"] -->|SMTP| X["Postfix"]
+    X -->|"alias lookup<br/>(read-only role)"| P
+    X -->|forward| I["User's real inbox"]
+```
+
+Postfix resolves `alias@MAIL_DOMAIN` to the owner's main address with one SQL query, so deactivating an alias rejects its mail immediately, with no map rebuild or reload.
+
+**Stack:** Python 3.13, Flask 3.1, SQLAlchemy 2, PostgreSQL 17, PyJWT, bcrypt, pyotp, Flask-Limiter + Redis, gunicorn · React 19, React Router 7, Vite 8 · Docker Compose, nginx, Postfix · pytest, Playwright, ruff, ESLint, GitHub Actions.
 
 ## Security design
 
@@ -39,23 +89,7 @@ The interface is in Russian.
 | Information leaks | JSON errors without internals • no secrets in logs • no third-party requests (fonts are bundled and self-hosted; the 2FA QR code is rendered in the browser) |
 | Misconfiguration | Refuses to start without a strong `SECRET_KEY` • debug mode off by default • CORS off by default • non-root containers • Postfix role limited to 5 columns |
 
-## Architecture
-
-```mermaid
-flowchart LR
-    B["Browser<br/>React SPA"] -->|HTTPS| N["nginx<br/>static files, /api proxy"]
-    N -->|/api| A["Flask API<br/>gunicorn"]
-    A --> P[("PostgreSQL")]
-    A --> R[("Redis<br/>rate limits")]
-    A -->|SMTP| M["Mail provider<br/>codes, notifications"]
-    S["Any sender"] -->|SMTP| X["Postfix"]
-    X -->|"alias lookup<br/>(read-only role)"| P
-    X -->|forward| I["User's real inbox"]
-```
-
-**Stack:** Python 3.13, Flask 3.1, SQLAlchemy 2, PostgreSQL 17, PyJWT, bcrypt, pyotp, Flask-Limiter + Redis, gunicorn · React 19, React Router 7, Vite 8 · Docker Compose, nginx, Postfix · pytest, Playwright, ruff, ESLint, GitHub Actions.
-
-## Quick start (Docker)
+## Quick start
 
 ```bash
 cp .env.example .env
@@ -65,11 +99,14 @@ docker compose up -d --build
 
 Open http://localhost:8080. While `MAIL_BACKEND=console`, verification codes appear in `docker compose logs -f backend`. For real delivery, set `MAIL_BACKEND=smtp` and the `SMTP_*` variables.
 
-For a complete server (HTTPS, mail server with forwarding, hardening) see [`deploy/README.md`](deploy/README.md): `deploy/server-setup.sh` sets up a fresh Debian server.
-
 The stack listens on `127.0.0.1:8080`. In production, put a TLS-terminating reverse proxy in front of it (Caddy, nginx + certbot, …), set `TRUST_PROXY=2` so rate limits see real client IPs, and enable the HSTS line in `project/front/nginx/security-headers.conf`.
 
-## Local development
+**A complete server** (HTTPS, mail server with forwarding, SRS, DKIM, spam filtering, daily backups, hardening): [`deploy/README.md`](deploy/README.md). `deploy/server-setup.sh` sets up a fresh Debian 13 server; it reproduces the setup behind [veil.ershov.me](https://veil.ershov.me).
+
+## Development
+
+<details>
+<summary><b>Run the backend and frontend locally</b></summary>
 
 **Backend** (needs PostgreSQL):
 
@@ -91,7 +128,10 @@ npm ci
 npm run dev                   # http://localhost:5173, /api is proxied to the backend
 ```
 
-## Configuration
+</details>
+
+<details>
+<summary><b>Configuration</b></summary>
 
 Backend settings come from environment variables or `project/.env` (see [`project/.env.example`](project/.env.example)).
 
@@ -111,9 +151,12 @@ Backend settings come from environment variables or `project/.env` (see [`projec
 
 The frontend reads `VITE_MAIL_DOMAIN` and, for split deployments only, `VITE_API_URL` at build time (see [`project/front/.env.example`](project/front/.env.example)).
 
-## Mail forwarding with Postfix
+</details>
 
-Postfix resolves `alias@MAIL_DOMAIN` to the owner's main address with one SQL query. Deactivating an alias makes Postfix reject mail for it immediately; no restart or map rebuild is needed.
+<details>
+<summary><b>Mail forwarding with Postfix (manual setup)</b></summary>
+
+`deploy/server-setup.sh` does all of this; these are the steps for an existing mail server.
 
 1. Point the MX record of the alias domain at the mail server and install `postfix` and `postfix-pgsql`.
 2. Create the read-only lookup role: `psql -d mail_organizer -f deploy/postfix/lookup-role.sql` (change the password first).
@@ -122,7 +165,10 @@ Postfix resolves `alias@MAIL_DOMAIN` to the owner's main address with one SQL qu
 
 Forwarded mail keeps the original sender, so use SRS (for example `postsrsd`) to keep it from failing SPF at the destination.
 
-## Upgrading an installation of the first version
+</details>
+
+<details>
+<summary><b>Upgrading an installation of the first version</b></summary>
 
 The first version stored aliases as JSON arrays in the `emails` and `deactivated` tables. The migration copies them into the new `aliases` table in a single transaction. It lower-cases account emails and reports duplicates and rows it cannot read.
 
@@ -135,9 +181,14 @@ flask --app app migrate-legacy --drop-legacy   # copy, then drop the old tables
 
 `SECRET_KEY` must now be at least 32 characters, and everyone has to sign in again once.
 
+</details>
+
 ## API
 
 All endpoints live under `/api`. They accept and return JSON, and errors look like `{"error": "...", "code": "machine_readable_code"}`. Authenticated endpoints expect `Authorization: Bearer <token>`.
+
+<details>
+<summary><b>Endpoints</b></summary>
 
 | Method | Path | Auth | Description |
 | --- | --- | --- | --- |
@@ -160,11 +211,13 @@ All endpoints live under `/api`. They accept and return JSON, and errors look li
 | POST | `/aliases/{id}/deactivate` · `/activate` | ✓ | Stop or resume forwarding |
 | GET | `/health` | | Liveness and database check |
 
+</details>
+
 ## Tests
 
-There are two pytest suites.
+Two pytest suites. GitHub Actions runs the lint, the code tests on SQLite and PostgreSQL, the dependency audits and the live tests against the Docker stack on every push.
 
-**1. Code tests** (`project/tests`, 83 tests). These test the API in-process and need no running server: auth, codes, aliases, 2FA, account management, security headers, rate limits, mail sending and the legacy migration.
+**Code tests** (`project/tests`, 83 tests) exercise the API in-process: auth, codes, aliases, 2FA, account management, security headers, rate limits, mail sending and the legacy migration.
 
 ```bash
 cd project
@@ -174,7 +227,12 @@ ruff check . ../live_tests && ruff format --check . ../live_tests
 cd front && npm run lint && npm run build
 ```
 
-**2. Live tests** (`live_tests`). These test a *running* instance: your local Docker stack or the real server. Each group runs when its settings are present and is skipped otherwise:
+**Live tests** (`live_tests`) check a *running* instance, your local Docker stack or the real server, including DNS and the mail server.
+
+<details>
+<summary><b>Live test groups and how to run them</b></summary>
+
+Each group runs when its settings are present and is skipped otherwise:
 
 | Group | Checks | Needs |
 | --- | --- | --- |
@@ -204,14 +262,11 @@ MAIL_DOMAIN=example.com MAIL_SERVER=203.0.113.10:25 SMTP_TLS_VERIFY=0 pytest liv
 
 The API allows 5 code requests per minute per IP, and one full run uses 4. Wait a minute between runs.
 
-GitHub Actions runs the lint, the code tests on SQLite and PostgreSQL, the dependency audits and the live tests against the Docker stack on every push.
+</details>
 
 ## Project structure
 
 ```
-├── docker-compose.yml        PostgreSQL + Redis + API + nginx
-├── deploy/postfix/           forwarding: lookup query, read-only DB role, main.cf lines
-├── live_tests/               pytest checks of a running instance: web, accounts, browser, DNS, mail server
 ├── project/                  Flask API
 │   ├── app.py                app factory and CLI (init-db, migrate-legacy)
 │   ├── api/                  auth, account and aliases endpoints
@@ -219,6 +274,10 @@ GitHub Actions runs the lint, the code tests on SQLite and PostgreSQL, the depen
 │   ├── models.py  database.py  validation.py  mailer.py  config.py  errors.py
 │   ├── tests/                pytest suite
 │   └── front/                React SPA (Vite) and its nginx config
-├── final_application.md      project proposal (RU)
-└── final_scripts.md          user scenarios (RU)
+├── live_tests/               pytest checks of a running instance: web, accounts, browser, DNS, mail server
+├── deploy/                   server setup script, daily backup, Postfix lookup, personal site
+├── docs/                     screenshots and the original coursework documents (RU)
+└── docker-compose.yml        PostgreSQL + Redis + API + nginx
 ```
+
+The project started as coursework at HSE University; the original proposal and user scenarios are in [`docs/coursework`](docs/coursework/README.md).
