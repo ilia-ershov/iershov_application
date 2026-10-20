@@ -153,11 +153,14 @@ def test_code_request_does_not_reveal_registered_addresses(client, app):
     to_taken = [m for m in outbox(app) if m["to"] == "taken@example.com"]
     assert len(to_taken) == 1 and not re.search(r"\b\d{6}\b", to_taken[0]["body"])  # a notice, no code
 
-    # password reset for an unknown address answers the same and sends nothing
+    # password reset for an unknown address answers the same and sends a notice without a code;
+    # sending nothing would make the answer measurably faster than for a registered address
     outbox(app).clear()
     response = client.post("/api/auth/request-code", json={"email": "nobody@example.com", "purpose": "reset_password"})
     assert response.status_code == 200
-    assert outbox(app) == []
+    assert response.get_json() == taken.get_json()
+    assert [m["to"] for m in outbox(app)] == ["nobody@example.com"]
+    assert not re.search(r"\b\d{6}\b", outbox(app)[0]["body"])
 
 
 @pytest.mark.parametrize(

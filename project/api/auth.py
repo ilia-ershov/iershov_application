@@ -52,15 +52,21 @@ def failed_auth(response):
 
 
 def _code_email(purpose, code, registered):
-    """What to send for a code request, or None to send nothing.
+    """What to send for a code request.
 
     The API answer is identical in every case, so it cannot be used to find out
     whether an address has an account; only the mailbox owner sees the difference.
+    A message is sent every time, otherwise the response time would give it away.
     """
     service = current_app.config["MAIL_DOMAIN"]
     minutes = int(current_app.config["CODE_TTL"].total_seconds() // 60)
     if purpose == "reset_password" and not registered:
-        return None
+        return (
+            "Запрос на сброс пароля",
+            f"Кто-то запросил сброс пароля на {service} для этого адреса, но аккаунта с ним нет.\n\n"
+            "Если это были вы, возможно, аккаунт зарегистрирован на другой адрес. "
+            "Если нет, просто проигнорируйте это письмо.",
+        )
     if purpose != "reset_password" and registered:
         return (
             "Попытка использовать ваш адрес",
@@ -115,15 +121,13 @@ def request_code():
         raise _resend_too_soon(int(config["CODE_RESEND_COOLDOWN"].total_seconds()))
 
     registered = User.query.filter_by(email=email).first() is not None
-    message = _code_email(purpose, code, registered)
-    if message:
-        try:
-            send_email(email, *message)
-        except Exception:
-            log.exception("Could not send verification email")
-            db.session.delete(record)
-            db.session.commit()
-            raise ApiError(503, "mail_unavailable", "Could not send the email, please try again later")
+    try:
+        send_email(email, *_code_email(purpose, code, registered))
+    except Exception:
+        log.exception("Could not send verification email")
+        db.session.delete(record)
+        db.session.commit()
+        raise ApiError(503, "mail_unavailable", "Could not send the email, please try again later")
     return jsonify(message="If this address can receive mail, a code has been sent to it")
 
 
