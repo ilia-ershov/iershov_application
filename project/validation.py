@@ -7,7 +7,11 @@ from flask import current_app, request
 
 from errors import bad_request
 
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+# Letters, digits and the RFC 5322 atext symbols only. Commas, quotes, angle brackets, brackets
+# and the like are refused: Postfix reads a comma in the looked-up main address as a list of
+# recipients, and smtplib splits the To header the same way, so "root,me@gmail.com" would also
+# deliver to root@<the server's domain>.
+EMAIL_RE = re.compile(r"[\w!#$%&'*+/=?^`{|}~.-]+@[\w-]+(?:\.[\w-]+)+")  # used with fullmatch
 MAX_EMAIL_LENGTH = 254
 MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_BYTES = 72  # bcrypt ignores everything after 72 bytes
@@ -41,7 +45,7 @@ def normalize_email(value, field="email"):
     if not isinstance(value, str):
         raise bad_request("invalid_email", "A valid email address is required", field=field)
     email = value.strip().lower()
-    if len(email) > MAX_EMAIL_LENGTH or not EMAIL_RE.match(email):
+    if len(email) > MAX_EMAIL_LENGTH or not EMAIL_RE.fullmatch(email):
         raise bad_request("invalid_email", "A valid email address is required", field=field)
     return email
 

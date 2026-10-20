@@ -1,5 +1,6 @@
 // Client-side checks for instant feedback; the backend enforces the same rules.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// Same character set as the server: no commas, quotes, brackets or spaces.
+const EMAIL_RE = /^[\p{L}\p{N}_!#$%&'*+/=?^`{|}~.-]+@[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)+$/u
 
 export function isEmail(value) {
   return EMAIL_RE.test(value.trim())

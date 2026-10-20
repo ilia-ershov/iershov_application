@@ -187,6 +187,22 @@ def test_duplicate_registration(client, app):
     assert response.get_json()["code"] == "email_taken"
 
 
+@pytest.mark.parametrize(
+    "email",
+    ["root,me@gmail.com", "a;b@example.com", '"a"<x>@example.com', "a b@example.com", "a(c)@example.com", "a@x"],
+)
+def test_addresses_mail_software_would_split_are_rejected(client, email):
+    # Postfix reads a comma in the main address as a second recipient (root@<server domain>)
+    response = client.post("/api/auth/request-code", json={"email": email})
+    assert response.status_code == 400
+    assert response.get_json()["code"] == "invalid_email"
+
+
+@pytest.mark.parametrize("email", ["first.last+tag@example.co.uk", "o'brien@example.io", "иван@почта.рф"])
+def test_ordinary_addresses_are_accepted(client, email):
+    assert client.post("/api/auth/request-code", json={"email": email}).status_code == 200
+
+
 def test_alias_domain_cannot_be_main_address(client):
     response = client.post("/api/auth/request-code", json={"email": "abc@w3r4kl.ru"})
     assert response.status_code == 400
