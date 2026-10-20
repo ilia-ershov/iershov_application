@@ -189,6 +189,8 @@ step_site() {
   if [ ! -f "/var/www/$DOMAIN/index.html" ]; then
     cp "$DEPLOY_DIR/site/index.html" "/var/www/$DOMAIN/index.html"
   fi
+  mkdir -p "/var/www/$DOMAIN/fonts"
+  cp "$DEPLOY_DIR"/site/fonts/* "/var/www/$DOMAIN/fonts/"
   chmod -R a+rX "/var/www/$DOMAIN"
 }
 
@@ -220,7 +222,7 @@ $DOMAIN {
 		X-Content-Type-Options nosniff
 		X-Frame-Options DENY
 		Referrer-Policy no-referrer
-		Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+		Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; img-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 	}
 	root * /var/www/$DOMAIN
 	file_server
