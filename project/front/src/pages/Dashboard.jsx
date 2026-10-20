@@ -53,8 +53,8 @@ export default function Dashboard() {
   const visible = (aliases || []).filter((alias) => matchesQuery(alias, query))
 
   return (
-    <section className="card">
-      <div className="card-header">
+    <section>
+      <div className="page-head">
         <div>
           <h1>Мои адреса</h1>
           {user && (
@@ -87,7 +87,7 @@ export default function Dashboard() {
           <ul className="alias-list">
             {visible.map((alias) => (
               <AliasItem key={alias.id} alias={alias} onSave={save}>
-                <button type="button" className="button button-small button-danger" onClick={() => deactivate(alias)}>
+                <button type="button" className="button button-small button-ghost button-danger" onClick={() => deactivate(alias)}>
                   Отключить
                 </button>
               </AliasItem>

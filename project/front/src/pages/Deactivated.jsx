@@ -42,11 +42,16 @@ export default function Deactivated() {
   const visible = (aliases || []).filter((alias) => matchesQuery(alias, query))
 
   return (
-    <section className="card">
-      <h1>Отключённые адреса</h1>
-      <p className="muted">
-        Письма на эти адреса не принимаются. Адреса закреплены за вами и никогда не будут выданы другому пользователю.
-      </p>
+    <section>
+      <div className="page-head">
+        <div>
+          <h1>Отключённые адреса</h1>
+          <p className="muted">
+            Письма на эти адреса не принимаются. Адреса закреплены за вами и никогда не будут выданы другому
+            пользователю.
+          </p>
+        </div>
+      </div>
 
       <Notice type="success">{notice}</Notice>
       <Notice>{error}</Notice>
@@ -63,7 +68,7 @@ export default function Deactivated() {
           <ul className="alias-list">
             {visible.map((alias) => (
               <AliasItem key={alias.id} alias={alias}>
-                <button type="button" className="button button-small button-primary" onClick={() => activate(alias)}>
+                <button type="button" className="button button-small" onClick={() => activate(alias)}>
                   Включить снова
                 </button>
               </AliasItem>

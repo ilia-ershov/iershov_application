@@ -2,13 +2,16 @@ import { Link, useLocation } from 'react-router-dom'
 import Notice from '../components/Notice'
 import { MAIL_DOMAIN } from '../config'
 
+// What the dashboard looks like after a few registrations (made-up addresses).
+const DEMO = [
+  { address: 'x7k2m9q4ab', note: 'github.com → ваш ящик' },
+  { address: 'p0z8e1n4rq', note: 'интернет-магазин → ваш ящик' },
+  { address: 't5w3c7j2ud', note: 'форум, базу которого украли · письма отклоняются', off: true },
+]
+
 const FEATURES = [
   {
-    title: 'Отдельный адрес для каждого сайта',
-    text: 'Регистрируйтесь с адресом вида x7k2m9q4ab@' + MAIL_DOMAIN + ' — письма приходят в ваш обычный почтовый ящик.',
-  },
-  {
-    title: 'Утечка? Просто отключите адрес',
+    title: 'Утечка? Отключите адрес',
     text: 'Если сайт начал слать спам или его базу украли, отключите адрес в один клик. Основная почта останется чистой.',
   },
   {
@@ -27,23 +30,35 @@ export default function Home() {
     <div className="stack">
       <Notice type="success">{location.state?.message}</Notice>
       <section className="hero">
-        <h1>Организатор почты</h1>
-        <p className="lead">
-          Скрывайте настоящий адрес электронной почты от сайтов, спамеров и фишинга. Выдаём адреса на {MAIL_DOMAIN},
-          которые пересылают письма вам и отключаются по первому требованию.
-        </p>
-        <div className="actions actions-center">
-          <Link to="/signup" className="button button-primary button-large">
-            Создать аккаунт
-          </Link>
-          <Link to="/login" className="button button-large">
-            Войти
-          </Link>
+        <div>
+          <h1>Отдельный адрес почты для каждого сайта</h1>
+          <p className="lead">
+            Регистрируйтесь с адресом на <code>{MAIL_DOMAIN}</code> — письма придут в ваш обычный ящик, а настоящий
+            адрес сайт не узнает.
+          </p>
+          <div className="actions">
+            <Link to="/signup" className="button button-primary button-large">
+              Создать аккаунт
+            </Link>
+            <Link to="/login" className="button button-large">
+              Войти
+            </Link>
+          </div>
         </div>
+        <ul className="demo" aria-label="Пример списка адресов">
+          {DEMO.map((item) => (
+            <li key={item.address} className={item.off ? 'demo-off' : undefined}>
+              <code>
+                {item.address}@{MAIL_DOMAIN}
+              </code>
+              <span>{item.note}</span>
+            </li>
+          ))}
+        </ul>
       </section>
       <section className="features">
         {FEATURES.map((feature) => (
-          <article key={feature.title} className="card feature">
+          <article key={feature.title} className="feature">
             <h2>{feature.title}</h2>
             <p>{feature.text}</p>
           </article>

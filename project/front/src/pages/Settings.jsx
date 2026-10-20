@@ -34,7 +34,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="stack">
+    <div className="stack settings">
       <section className="card">
         <h1>Настройки</h1>
         <dl className="profile">

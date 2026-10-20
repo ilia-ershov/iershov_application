@@ -39,7 +39,6 @@ export default function AliasItem({ alias, onSave, children }) {
       <div className="alias-main">
         <div className="alias-address">
           <code>{alias.address}</code>
-          <CopyButton text={alias.address} />
         </div>
 
         {editing ? (
@@ -70,19 +69,18 @@ export default function AliasItem({ alias, onSave, children }) {
                 {displayUrl(alias.service_url)}
               </a>
             )}
+            <span className="alias-meta">
+              {alias.deactivated_at ? `отключён ${formatDate(alias.deactivated_at)}` : `создан ${formatDate(alias.created_at)}`}
+            </span>
           </div>
         )}
-
-        <div className="alias-meta">
-          Создан {formatDate(alias.created_at)}
-          {alias.deactivated_at && ` · отключён ${formatDate(alias.deactivated_at)}`}
-        </div>
       </div>
 
       {!editing && (
         <div className="alias-actions">
+          <CopyButton text={alias.address} className="button button-small button-ghost" />
           {onSave && (
-            <button type="button" className="button button-small" onClick={startEditing}>
+            <button type="button" className="button button-small button-ghost" onClick={startEditing}>
               Изменить
             </button>
           )}

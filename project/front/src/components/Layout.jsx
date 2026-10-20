@@ -35,8 +35,12 @@ export default function Layout() {
       <header className="header">
         <div className="header-inner">
           <Link to={loggedIn ? '/dashboard' : '/'} className="brand">
-            <span className="brand-mark" aria-hidden="true">@</span>
-            {MAIL_DOMAIN}
+            <svg className="brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+              <rect x="2.5" y="5" width="19" height="14" rx="2" />
+              <path d="m3 6.5 9 6.5 9-6.5" />
+            </svg>
+            Организатор почты
+            <span className="brand-domain">{MAIL_DOMAIN}</span>
           </Link>
           <button
             type="button"
@@ -70,7 +74,10 @@ export default function Layout() {
         </Suspense>
       </main>
       <footer className="footer">
-        {MAIL_DOMAIN} — адреса для регистрации на сайтах без раскрытия основной почты
+        <div className="footer-inner">
+          <span>Адреса для регистрации на сайтах без раскрытия основной почты</span>
+          <a href="https://github.com/ilia-ershov/iershov_application">Исходный код</a>
+        </div>
       </footer>
     </div>
   )
