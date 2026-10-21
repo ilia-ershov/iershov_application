@@ -1,0 +1,63 @@
+# One-command deployment: PostgreSQL + Redis + Flask API (gunicorn) + nginx serving the SPA.
+#   cp .env.example .env   # fill in SECRET_KEY and POSTGRES_PASSWORD
+#   docker compose up -d --build
+# The site is then served on http://localhost:${HTTP_PORT:-8080}; put a TLS-terminating proxy in front of it.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: mail_organizer
+      POSTGRES_USER: mail_organizer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mail_organizer -d mail_organizer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    restart: unless-stopped
+
+  backend:
+    build: ./project
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+      DATABASE_URL: postgresql://mail_organizer:${POSTGRES_PASSWORD}@db:5432/mail_organizer
+      MAIL_DOMAIN: ${MAIL_DOMAIN:-w3r4kl.ru}
+      MAIL_BACKEND: ${MAIL_BACKEND:-console}
+      MAIL_FROM: ${MAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_SSL: ${SMTP_SSL:-false}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      RATELIMIT_STORAGE_URI: redis://redis:6379/0
+      AUTO_INIT_DB: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./project/front
+      args:
+        VITE_MAIL_DOMAIN: ${MAIL_DOMAIN:-w3r4kl.ru}
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  db-data:
