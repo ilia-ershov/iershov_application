@@ -6,8 +6,8 @@ Veil gives you a separate, randomly generated e-mail address for every website
 you sign up to. Mail sent to that address is forwarded to your real inbox, and
 you can switch any address off with one click.
 
-It started as my graduation research project at HSE Lyceum (*"Mail Organizer"*,
-2024–2026). The original project documents are in Russian and are kept in this
+It started as my graduation research project at HSE Lyceum (*"Mail Organizer"*).
+The original project documents are in Russian and are kept in this
 repository (see [Project documents](#project-documents)).
 
 <!-- Screenshots: add PNGs to docs/screenshots/ and uncomment.
